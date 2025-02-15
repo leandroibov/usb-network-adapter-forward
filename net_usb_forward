@@ -1,0 +1,269 @@
+#!/bin/bash
+echo "";
+echo "";
+echo "Checking modules for external interface";
+echo "lsmod | grep r8152";
+lsmod | grep r8152
+echo "";
+echo "Activating modules for external interface r8152";
+echo "sudo modprobe r8152";
+sudo modprobe r8152
+echo "";
+echo "Checking if your external interface is recognized";
+echo "lsusb";
+lsusb
+
+
+echo "";
+# Ask the user if they want to proceed or exit
+echo "Do you want to continue or exit? (c for continue, e for exit)"
+read choice
+
+# Check the user's choice
+if [ "$choice" == "c" ]; then
+    echo "Continuing the program..."
+    echo "";
+    # Add further commands to continue the program
+    # Example: 
+    # lsusb
+    # or any other logic to proceed with the program
+elif [ "$choice" == "e" ]; then
+    echo "Exiting the program..."
+    exit 0
+    echo "";
+else
+    echo "Invalid input, please enter 'c' to continue or 'e' to exit."
+    # Optionally, loop the question or terminate
+    exit 1
+    echo "";
+fi
+
+
+
+echo "List of network interfaces, bridges, vlans etc... and connections with uuid";
+
+# Listing all network interfaces using the ip command
+echo "-----------------------------------------------";
+interfaces=$(ip link show | grep -oP '^\d+: \K\w+')
+
+# Displaying the interfaces in a single line
+echo "$interfaces"
+echo;
+echo "nmcli connection show";
+nmcli connection show
+echo "-----------------------------------------------";
+echo;
+
+# Ask if the desired interface connection exists
+echo "Does the connection for the desired interface exist?"
+read -rp "Do you want to create a connection and set up a forward mode for the device? (yes/no): " create_connection
+
+if [[ "$create_connection" == "yes" ]]; then
+    # Ask for the connection name
+    read -rp "Enter the connection name: " con_name
+    # Ask for the interface name
+    read -rp "Enter the name of your interface: " interface
+    echo "The chosen interface is: $interface"
+    
+    # Create the connection with shared IPv4 method
+    echo "Creating connection with the name $con_name and setting IPv4 method to shared..."
+    echo "sudo nmcli connection add type ethernet con-name "$con_name" ifname "$interface" ipv4.method shared";
+    sudo nmcli connection add type ethernet con-name "$con_name" ifname "$interface" ipv4.method shared
+
+    # Modify the connection (optional, if you want to ensure the change)
+    #echo "Setting the interface $interface to forward the connection (shared)..."
+    #sudo nmcli connection modify "$interface" ipv4.method shared
+else
+    # If the connection already exists, configure the interface directly
+    echo "You chose not to create a new connection."
+    
+    # Ask for the external interface name
+    read -rp "Enter the name of UUID of your USB external interface: " interface
+    echo "The chosen interface is: $interface"
+    
+    # Configuring the external interface for forwarding
+    echo "Configuring the external interface $interface to forward connection to the outside (FORWARD)..."
+    echo "sudo nmcli connection modify "$interface" ipv4.method shared"
+    sudo nmcli connection modify "$interface" ipv4.method shared
+fi
+
+
+echo "";
+echo "Enable IP forwarding by writing '1' to the /proc/sys/net/ipv4/ip_forward and /proc/sys/net/ipv4/conf/all/forwarding";
+sudo echo 1 > /proc/sys/net/ipv4/ip_forward
+sudo echo 1 > /proc/sys/net/ipv4/conf/all/forwarding
+echo "cat /proc/sys/net/ipv4/ip_forward";
+cat /proc/sys/net/ipv4/ip_forward
+echo "cat /proc/sys/net/ipv4/conf/all/forwarding";
+cat /proc/sys/net/ipv4/conf/all/forwarding;
+echo;
+
+
+# Check if IP forwarding is enabled in /etc/sysctl.conf and
+# Check if /etc/sysctl.conf.bak already exists
+if [ -f "/etc/sysctl.conf.bak" ]; then
+    # If the backup file exists, no action is needed
+    echo "Backup /etc/sysctl.conf.bak already exists. No need to create a new one."
+else
+    # If the backup file does not exist, create the backup
+    echo "Backing up /etc/sysctl.conf"
+    sudo cp -r /etc/sysctl.conf /etc/sysctl.conf.bak
+    echo "Backup created as /etc/sysctl.conf.bak"
+    echo;
+fi
+
+# Check if the necessary lines exist (commented or uncommented) and remove them if they do
+echo "Ensuring IP forwarding is properly configured in /etc/sysctl.conf"
+echo "options"
+echo "net.ipv4.ip_forward = 1";
+echo "net/ipv4/conf/all/forwarding = 1";
+echo "must be activated... see below...";
+
+
+# Remove any existing lines related to ip_forward and forwarding (commented or uncommented)
+sudo sed -i '/^\s*#\?\s*net.ipv4.ip_forward = 1/d' /etc/sysctl.conf
+sudo sed -i '/^\s*#\?\s*net.ipv4.conf.all.forwarding = 1/d' /etc/sysctl.conf
+
+# Add the necessary lines with comments explaining them
+echo ""
+echo "# Enabling IP forwarding for IPv4. This allows the system to forward packets between network interfaces." | sudo tee -a /etc/sysctl.conf > /dev/null
+echo "net.ipv4.ip_forward = 1" | sudo tee -a /etc/sysctl.conf > /dev/null
+echo ""
+
+echo "# Enabling packet forwarding for all interfaces. This setting applies to all network interfaces for packet forwarding." | sudo tee -a /etc/sysctl.conf > /dev/null
+echo "net.ipv4.conf.all.forwarding = 1" | sudo tee -a /etc/sysctl.conf > /dev/null
+echo ""
+
+# Apply the changes to sysctl immediately without reboot
+sudo sysctl -p
+echo "IP forwarding has been enabled and configured."
+
+
+
+
+
+echo;
+sudo echo "Turn off network for security";
+sudo echo "";
+sudo echo "sudo nmcli networking off;";
+sudo service network-manager stop; 
+sudo systemctl stop NetworkManager;
+sudo nmcli networking off;
+sudo echo "";
+
+echo "Cleaning iptables rules..."
+sudo iptables -F  # Remove as regras de todas as chains
+sudo iptables -X  # Apaga todas as chains
+sudo iptables -Z  # Zera as regras de todas as chains
+
+sudo iptables -P INPUT ACCEPT;
+sudo iptables -P FORWARD ACCEPT;
+sudo iptables -P OUTPUT ACCEPT;
+
+sudo iptables -t filter -F;
+sudo iptables -t filter -X;
+sudo iptables -t filter -Z;
+
+sudo iptables -t nat -F;
+sudo iptables -t nat -X;
+sudo iptables -t nat -Z;
+
+sudo iptables -t mangle -F;
+sudo iptables -t mangle -X;
+sudo iptables -t mangle -Z;
+
+
+sudo iptables -t raw -F;
+sudo iptables -t raw -X;
+sudo iptables -t raw -Z;
+
+
+sudo echo "";
+
+echo "Configuring iptables for forward $interface mode";
+############################ Table Filter ############################
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+sudo iptables -P INPUT DROP
+sudo iptables -P FORWARD DROP
+sudo iptables -P OUTPUT ACCEPT
+sudo iptables -A INPUT -i $interface -p udp -m udp --dport 67 -j ACCEPT
+sudo iptables -A INPUT -i $interface -p tcp -m tcp --dport 67 -j ACCEPT
+sudo iptables -A INPUT -i $interface -p udp -m udp --dport 53 -j ACCEPT
+sudo iptables -A INPUT -i $interface -p tcp -m tcp --dport 53 -j ACCEPT
+sudo iptables -A INPUT -i lo -j ACCEPT
+sudo iptables -A INPUT -m state --state RELATED,ESTABLISHED -j ACCEPT
+sudo iptables -A INPUT -m state --state INVALID -j DROP
+sudo iptables -A INPUT -m state --state NEW -j DROP
+sudo iptables -A INPUT -s 192.168.0.0/24 -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -j ACCEPT
+sudo iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -j DROP
+sudo iptables -A INPUT -i ppp0 -p udp -m udp --dport 0:30000 -j DROP
+sudo iptables -A FORWARD -d 10.42.0.0/24 -o $interface -m state --state RELATED,ESTABLISHED -j ACCEPT
+sudo iptables -A FORWARD -s 10.42.0.0/24 -i $interface -j ACCEPT
+sudo iptables -A FORWARD -i $interface -o $interface -j ACCEPT
+sudo iptables -A FORWARD -o $interface -j REJECT --reject-with icmp-port-unreachable
+sudo iptables -A FORWARD -i $interface -j REJECT --reject-with icmp-port-unreachable
+sudo iptables -A FORWARD -i lo -j DROP
+sudo iptables -A FORWARD -m state --state RELATED,ESTABLISHED -j DROP
+sudo iptables -A FORWARD -m state --state INVALID -j DROP
+
+############################ Table Nat ############################
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+sudo iptables -t nat -P PREROUTING ACCEPT
+sudo iptables -t nat -P INPUT ACCEPT
+sudo iptables -t nat -P OUTPUT ACCEPT
+sudo iptables -t nat -P POSTROUTING ACCEPT
+sudo iptables -t nat -A POSTROUTING -s 10.42.0.0/24 ! -d 10.42.0.0/24 -j MASQUERADE
+
+############################ Table Mangle ############################
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+sudo iptables -t mangle -P PREROUTING ACCEPT
+sudo iptables -t mangle -P INPUT ACCEPT
+sudo iptables -t mangle -P FORWARD ACCEPT
+sudo iptables -t mangle -P OUTPUT ACCEPT
+sudo iptables -t mangle -P POSTROUTING ACCEPT
+
+############################ Table Raw ############################
+# Warning: iptables-legacy tables present, use iptables-legacy to see them
+sudo iptables -t raw -P PREROUTING ACCEPT
+sudo iptables -t raw -P OUTPUT ACCEPT
+############################ FIM LISTAR REGRAS IPTABLES ############################
+
+
+echo "";
+sudo echo "Restarting network...";
+sudo echo "";
+sudo service network-manager stop; 
+sudo service network-manager start; 
+sudo service network-manager restart; 
+sudo systemctl stop NetworkManager;
+sudo systemctl disable NetworkManager;
+sudo systemctl enable NetworkManager;
+sudo systemctl start NetworkManager;
+
+echo "";
+#iptables rules new list
+sudo echo "";
+echo "############################ List Iptable Rules ############################"
+sudo echo "";
+sudo echo "############################ Table Filter ############################";
+sudo iptables -t filter -S;
+sudo echo "";
+
+sudo echo "############################ Table Nat ############################";
+sudo iptables -t nat -S;
+sudo echo "";
+
+sudo echo "############################ Table Mangle ############################";
+sudo iptables -t mangle -S;
+sudo echo "";
+
+sudo echo "############################ Table Raw ############################";
+sudo iptables -t raw -S;
+sudo echo "############################ End... ############################";
+sudo echo "";
+echo "-------------------------------------------------------------------------------------";
+echo "Reboot the system if is not working";
+echo "-------------------------------------------------------------------------------------";
+echo;
+
+
