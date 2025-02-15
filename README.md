@@ -1,4 +1,4 @@
-# How use
+# How to use
 
 sudo chmod +x usb_net_forward usb_net_local
 
@@ -6,19 +6,31 @@ sudo cp -r usb_net_forward usb_net_local /bin
 
 ## Executing
 
-just call from any place of terminal or
+Just call from any location in the terminal or
 
 ./usb_net_forward
 
 ./usb_net_local
 
 ### How it works
-Conecte first your usb network adapter first
 
-run the program...
+First, connect your USB network adapter.
 
-usb_net_local is to receave a connection from a gateway as a rooter and get connection for your computer...
+Run the program...
 
-usb_net_forward is to forward connection from your computer to other computer, hub, rooter, switches etc...
+`usb_net_local` is used to receive a connection from a gateway (acting as a router) and provide network access to your computer.
 
-reboot system for forward mode for the /etc/sysctl.conf get effect...
+`usb_net_forward` is used to forward the connection from your computer to another computer, hub, router, switches, etc.
+
+Reboot the system to enable forwarding mode, so the changes in `/etc/sysctl.conf` take effect.
+
+The TP-Link UE300 USB network adapter works well on Debian 11 and 12. Similar adapters should work too...
+
+
+# Doe monero para nos ajudar: 
+
+## 87JGuuwXzoMGwQAcSD7cvS7D7iacPpN2f5bVqETbUvCgdEmrPZa12gh5DSiKKRgdU7c5n5x1UvZLj8PQ7AAJSso5CQxgjak
+
+Página oficial de segurança digital:
+
+https://traderprofissional.com.br/seguranca-digital.aspx
