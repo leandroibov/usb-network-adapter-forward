@@ -1,13 +1,28 @@
 #!/bin/bash
+
+# Get the IP address of the network interface
+ip_address=$(hostname -I | awk '{print $1}')
+
+# Check if the IP is within the 192.168.0.0/24 network
+if [[ ! $ip_address =~ ^192\.168\.0\.[0-9]+$ ]]; then
+    # Display the warning message
+    echo "The DHCP mode currently works only with the 192.168.0.0/24 network."
+    echo "Please change the network settings of your gateway, router, or switch accordingly."
+    echo "Waiting 30 seconds before exiting..."
+    
+    # Wait for 30 seconds
+    sleep 30
+    
+    # Exit the script without closing the terminal
+    exit 0
+fi
+
+# If the IP is in the correct network, the script continues (you can add further actions here)
+echo "Your network is in the correct range: $ip_address"
+
+
 echo "";
-
-#variables
-#default network for external interface
-rede="10.42.0.0/24";
-
-
-echo "USB Network Adapter - Forward Mode";
-echo "Developer: Leandro Santos (leandroibov)";
+echo "";
 echo "Checking modules for external interface";
 echo "lsmod | grep r8152";
 lsmod | grep r8152
@@ -72,37 +87,30 @@ read -rp "Do you want to create a connection and set up a forward mode for the d
 if [[ "$create_connection" == "yes" ]]; then
     # Ask for the connection name
     read -rp "Enter the connection name: " con_name
-    echo "The chosen connection name is: $con_name"
+    # Ask for the interface name
     read -rp "Enter the name of your interface: " interface
     echo "The chosen interface is: $interface"
     
     # Create the connection with shared IPv4 method
     echo "Creating connection with the name $con_name and setting IPv4 method to shared..."
     echo "sudo nmcli connection add type ethernet con-name "$con_name" ifname "$interface" ipv4.method shared";
-    sudo nmcli connection add type ethernet con-name "$con_name" ifname "$interface" ipv4.method shared ipv4.address "$rede";
-    #dhcp mode - can not work if dhcp server chose diffent ip of default ip/cidr defined to iptables variable $rede
-    #need manual configuration for dhcp
-    #sudo nmcli connection add type ethernet con-name "$con_name" ifname "$interface" ipv4.method shared
-    
+    sudo nmcli connection add type ethernet con-name "$con_name" ifname "$interface" ipv4.method shared
+
     # Modify the connection (optional, if you want to ensure the change)
     #echo "Setting the interface $interface to forward the connection (shared)..."
     #sudo nmcli connection modify "$interface" ipv4.method shared
-    #echo "Setting the uudi $con_name to forward the connection (shared)..."
-    #sudo nmcli connection modify "$con_name" ipv4.method shared
 else
     # If the connection already exists, configure the interface directly
     echo "You chose not to create a new connection."
     
     # Ask for the external interface name
-    read -rp "Enter the name of UUID of your USB external interface: " uuid
-    echo "The chosen interface is: $uuid"
-    read -rp "Enter the name of your interface: " interface
+    read -rp "Enter the name of UUID of your USB external interface: " interface
     echo "The chosen interface is: $interface"
     
     # Configuring the external interface for forwarding
-    echo "Configuring the external interface $uuid to forward connection to the outside (FORWARD)..."
-    echo "sudo nmcli connection modify "$uuid" ipv4.method shared"
-    sudo nmcli connection modify "$uuid" ipv4.method shared ipv4.address "$rede";
+    echo "Configuring the external interface $interface to forward connection to the outside (FORWARD)..."
+    echo "sudo nmcli connection modify "$interface" ipv4.method shared"
+    sudo nmcli connection modify "$interface" ipv4.method shared
 fi
 
 
@@ -155,122 +163,7 @@ echo ""
 # Apply the changes to sysctl immediately without reboot
 sudo sysctl -p
 echo "IP forwarding has been enabled and configured."
-echo;
 
-
-# Exibe uma mensagem informando sobre o tipo de rede e o comportamento do script
-echo "Verify the network type you're using!"
-echo "ip route";
-ip route
-echo
-# Captura as redes encontradas no comando ip route
-rede_now=($(ip route | grep -oP '\d+\.\d+\.\d+\.\d+/[0-9]+'))
-
-# Atribui a primeira rede à variável rede_now1
-rede_now1="${rede_now[0]}"
-
-# Atribui a segunda rede à variável rede_now2, se houver
-rede_now2="${rede_now[1]}"
-
-# Exibe as redes encontradas (se existirem)
-echo "Network found: $rede_now1"
-echo "Network found: $rede_now2"
-echo;
-
-
-##########ERRO...
-#### PRECISA ADICIONAR NO NETWORK MANAGER PARA COLOCAR O IP, GATEWAY E MASCARA DE REDE NA INTERFACE EXTERNA COM COMANDOS nmcli ...
-#### depois adicionar isso no iptables!
-
-
-# Verifica se a rede atual é a mesma que a rede padrão e exibe um aviso
-if [[ "$rede_now1" == "$rede" || "$rede_now2" == "$rede" ]]; then
-    echo "Warning: The default network $rede is the same as your current network."
-    echo "Please change the network to avoid conflicts!"
-    echo;
-    # Força o usuário a escolher uma rede diferente
-    echo "Examples of networks: 192.168.0.0/24, 10.0.0.0/24, 172.16.0.0/24"
-    read -rp "Enter the network address for the USB network adapter: " rede
-    echo "You chose the network: $rede"
-    echo;
-    echo "uuid of the connections and interfaces";
-    echo "-----------------------------------------------";
-interfaces=$(ip link show | grep -oP '^\d+: \K\w+')
-
-# Displaying the interfaces in a single line
-echo "$interfaces"
-echo;
-echo "nmcli connection show";
-nmcli connection show
-echo "-----------------------------------------------";
-        
-    read -rp "Enter the uuid of connection USB network adapter: " uuid
-    echo "You chose the network: $uuid"
-    echo;
-    echo "sudo nmcli con modify "$uuid" ipv4.method shared ipv4.address "$rede";";
-    sudo nmcli con modify "$uuid" ipv4.method shared ipv4.address "$rede";
-    nmcli;
-    nmcli connection show;
-    
-    else
-    echo "Do you want to use the default network $rede or choose another network address?"
-echo "Press 1 for the default network"
-echo "Press 2 to choose another network"
-read -rp "Enter your choice: " choice
-
-# Se o usuário escolher a rede padrão (1)
-if [[ "$choice" == "1" ]]; then
-echo;
-    echo "You chose the default network."
-    
-# Se o usuário escolher outra rede (2)
-elif [[ "$choice" == "2" ]]; then
-echo;
-     echo "Examples of networks: 192.168.0.0/24, 10.0.0.0/24, 172.16.0.0/24"
-    read -rp "Enter the network address for the USB network adapter: " rede
-    echo "You chose the network: $rede"
-    echo;
-    echo "uuid of the connections and interfaces";
-echo "-----------------------------------------------";
-interfaces=$(ip link show | grep -oP '^\d+: \K\w+')
-
-# Displaying the interfaces in a single line
-echo "$interfaces"
-echo;
-echo "nmcli connection show";
-nmcli connection show
-echo "-----------------------------------------------";
-        
-    read -rp "Enter the uuid of connection USB network adapter: " uuid
-    echo "You chose the network: $uuid"
-    echo;
-    echo "sudo nmcli con modify "$uuid" ipv4.method shared ipv4.address "$rede";";
-    sudo nmcli con modify "$uuid" ipv4.method shared ipv4.address "$rede";
-    #nmcli;
-    #nmcli connection show;
-    echo;
-echo "-----------------------------------------------";
-interfaces=$(ip link show | grep -oP '^\d+: \K\w+')
-
-# Displaying the interfaces in a single line
-echo "$interfaces"
-echo;
-echo "nmcli connection show";
-nmcli connection show
-echo "-----------------------------------------------";
-    
-   
-    
-    
-    
-else
-echo;
-    echo "Invalid choice. Please run the script again and choose either 1 or 2. Finishing the script in 20 seconds"
-    sleep 20;
-    exit 1
-    
-fi
-fi
 
 
 
@@ -330,8 +223,8 @@ sudo iptables -A INPUT -m state --state NEW -j DROP
 sudo iptables -A INPUT -s 192.168.0.0/24 -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -j ACCEPT
 sudo iptables -A INPUT -p tcp -m tcp --tcp-flags FIN,SYN,RST,ACK SYN -j DROP
 sudo iptables -A INPUT -i ppp0 -p udp -m udp --dport 0:30000 -j DROP
-sudo iptables -A FORWARD -d $rede -o $interface -m state --state RELATED,ESTABLISHED -j ACCEPT
-sudo iptables -A FORWARD -s $rede -i $interface -j ACCEPT
+sudo iptables -A FORWARD -d 10.42.0.0/24 -o $interface -m state --state RELATED,ESTABLISHED -j ACCEPT
+sudo iptables -A FORWARD -s 10.42.0.0/24 -i $interface -j ACCEPT
 sudo iptables -A FORWARD -i $interface -o $interface -j ACCEPT
 sudo iptables -A FORWARD -o $interface -j REJECT --reject-with icmp-port-unreachable
 sudo iptables -A FORWARD -i $interface -j REJECT --reject-with icmp-port-unreachable
@@ -345,7 +238,7 @@ sudo iptables -t nat -P PREROUTING ACCEPT
 sudo iptables -t nat -P INPUT ACCEPT
 sudo iptables -t nat -P OUTPUT ACCEPT
 sudo iptables -t nat -P POSTROUTING ACCEPT
-sudo iptables -t nat -A POSTROUTING -s $rede ! -d $rede -j MASQUERADE
+sudo iptables -t nat -A POSTROUTING -s 10.42.0.0/24 ! -d 10.42.0.0/24 -j MASQUERADE
 
 ############################ Table Mangle ############################
 # Warning: iptables-legacy tables present, use iptables-legacy to see them
