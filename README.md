@@ -18,13 +18,15 @@ First, connect your USB network adapter.
 
 Run the program...
 
-`usb_net_local` is used to receive a connection from a gateway (acting as a router) and provide network access to your computer.
+usb_net_local` is used to receive a connection from a gateway (acting as a router) and provide network access to your computer.
 
-`usb_net_forward` is used to forward the connection from your computer to another computer, hub, router, switches, etc.
+usb_net_forward is used to forward the connection from your computer to another computer, hub, router, switch, etc., using any static IP for the network you choose!
+
+usb_net_forward_dhcp is used to forward the connection from your computer to another computer, hub, router, switch, etc., using the dnsmasq DHCP server, with the requirement that the host network be 192.168.0.0/24 or similar!
 
 Reboot the system to enable forwarding mode, so the changes in `/etc/sysctl.conf` take effect.
 
-The TP-Link UE300 USB network adapter works well on Debian 11 and 12. Similar adapters should work too...
+The TP-Link UE300 USB network adapter works well on Debian 11 and 12. Most other adapters should work as well.
 
 
 # Doe monero para nos ajudar: 
