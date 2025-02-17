@@ -1,16 +1,24 @@
 # How to use
 
-sudo chmod +x usb_net_forward usb_net_local
+sudo chmod +x usb_net_forward usb_net_forward_dhcp usb_net_local
 
-sudo cp -r usb_net_forward usb_net_local /bin
+sudo cp -r usb_net_forward usb_net_forward_dhcp usb_net_local /bin
 
 ## Executing
 
-Just call from any location in the terminal or
+Just call it from any location in the terminal using the names! For example:
+
+Type usb_net_forward in the terminal to call it!
+
+Or...
+
+If you're in the directory where the files are saved:
 
 ./usb_net_forward
 
 ./usb_net_local
+
+./usb_net_forward_dhcp
 
 ### How it works
 
